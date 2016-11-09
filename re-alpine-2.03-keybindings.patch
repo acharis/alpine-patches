@@ -1,0 +1,276 @@
+diff -ur orig-re-alpine-2.03/alpine/mailcmd.c re-alpine-2.03/alpine/mailcmd.c
+--- orig-re-alpine-2.03/alpine/mailcmd.c	2012-12-20 23:06:57.000000000 -0500
++++ re-alpine-2.03/alpine/mailcmd.c	2016-10-24 07:11:47.894636483 -0400
+@@ -1521,6 +1521,11 @@
+       case CTRL_KEY_DOWN   : s = "Ctrl Down Arrow";	break;
+       case CTRL_KEY_RIGHT  : s = "Ctrl Right Arrow";	break;
+       case CTRL_KEY_LEFT   : s = "Ctrl Left Arrow";	break;
++      case CTRL_KEY_DEL   : s = "Ctrl Delete";	break;
++      case CTRL_KEY_BACKSPACE   : s = "Ctrl Backspace";	break;
++      case ALT_KEY_B : s = "Alt B"; break;
++      case ALT_KEY_D : s = "Alt D"; break;
++      case ALT_KEY_F : s = "Alt F"; break;
+       case PF1	     :
+       case PF2	     :
+       case PF3	     :
+diff -ur orig-re-alpine-2.03/alpine/osdep/termin.unx.c re-alpine-2.03/alpine/osdep/termin.unx.c
+--- orig-re-alpine-2.03/alpine/osdep/termin.unx.c	2012-12-20 23:06:57.000000000 -0500
++++ re-alpine-2.03/alpine/osdep/termin.unx.c	2016-10-24 07:11:47.897969807 -0400
+@@ -472,6 +472,31 @@
+         dprint((9, "Read char returning: 0x%x %s (for CTRL_KEY_LEFT)\n", status, pretty_command(status)));
+ 	return(status);
+ 
++	case CTRL_KEY_DEL:
++	  status = KEY_DEL;
++	  dprint((9, "Read char returning: 0x%x %s (for CTRL_KEY_DEL)\n", status, pretty_command(status)));
++	  return(status);
++
++	case CTRL_KEY_BACKSPACE:
++	  status = KEY_BACKSPACE;
++	  dprint((9, "Read char returning: 0x%x %s (for CTRL_KEY_BACKSPACE)\n", status, pretty_command(status)));
++	  return(status);
++
++	case ALT_KEY_B:
++	  status = 'B';
++	  dprint((9, "Read char returning: 0x%x %s (for ALT_KEY_B)\n", status, pretty_command(status)));
++	  return(status);
++
++	case ALT_KEY_D:
++	  status = 'D';
++	  dprint((9, "Read char returning: 0x%x %s (for ALT_KEY_D)\n", status, pretty_command(status)));
++	  return(status);
++
++	case ALT_KEY_F:
++	  status = 'F';
++	  dprint((9, "Read char returning: 0x%x %s (for ALT_KEY_F)\n", status, pretty_command(status)));
++	  return(status);
++
+       case KEY_SWALLOW_Z:
+ 	status = KEY_JUNK;
+       case KEY_SWAL_UP:
+diff -ur orig-re-alpine-2.03/pico/basic.c re-alpine-2.03/pico/basic.c
+--- orig-re-alpine-2.03/pico/basic.c	2012-12-20 23:06:57.000000000 -0500
++++ re-alpine-2.03/pico/basic.c	2016-10-24 07:11:47.897969807 -0400
+@@ -291,6 +291,10 @@
+ 
+     while (n-- > 0) {	/* for each one asked for */
+ 
++	if(lback(curwp->w_dotp) != curbp->b_linep){
++	    curwp->w_dotp = lback(curwp->w_dotp);
++	    curwp->w_doto = 0;
++	}
+ 	while(lisblank(curwp->w_dotp)
+ 	      && lback(curwp->w_dotp) != curbp->b_linep){
+ 	    curwp->w_dotp = lback(curwp->w_dotp);
+@@ -360,10 +364,14 @@
+ 
+     while (n-- > 0) {	/* for each one asked for */
+ 
+-	while(lisblank(curwp->w_dotp)){
++	if(lforw(curwp->w_dotp) != curbp->b_linep){
++	    curwp->w_dotp = lforw(curwp->w_dotp);
++	    curwp->w_doto = 0;
++	}
++	while(lisblank(curwp->w_dotp)
++	      && lforw(curwp->w_dotp) != curbp->b_linep){
++	    curwp->w_dotp = lforw(curwp->w_dotp);
+ 	    curwp->w_doto = 0;
+-	    if((curwp->w_dotp = lforw(curwp->w_dotp)) == curbp->b_linep)
+-	      break;
+ 	}
+ 
+ 	/* scan line by line until we come to a line ending with
+diff -ur orig-re-alpine-2.03/pico/ebind.h re-alpine-2.03/pico/ebind.h
+--- orig-re-alpine-2.03/pico/ebind.h	2012-12-20 23:06:57.000000000 -0500
++++ re-alpine-2.03/pico/ebind.h	2016-10-24 07:11:47.897969807 -0400
+@@ -84,11 +84,11 @@
+ #ifdef	SPELLER
+ 	{CTRL|'T',		spell},
+ #endif	/* SPELLER */
+-	{CTRL|'U',		yank},
++	/*	{CTRL|'U',		yank},*/
+ 	{CTRL|'V',		forwpage},
+ 	{CTRL|'W',		forwsearch},
+ 	{CTRL|'X',		wquit},
+-	{CTRL|'Y',		backpage},
++	{CTRL|'Y',		yank},
+ #if defined(SIGTSTP) || defined(_WINDOWS)
+ 	{CTRL|'Z',		bktoshell},
+ #endif
+@@ -99,6 +99,13 @@
+ 	{CTRL|KEY_RIGHT,forwword},
+ 	{CTRL|KEY_HOME,	gotobob},
+ 	{CTRL|KEY_END,	gotoeob},
++	{CTRL|KEY_DEL,  delfword},
++	{CTRL|KEY_BACKSPACE,  delbword},
++	{CTRL|KEY_UP, gotobop},
++	{CTRL|KEY_DOWN, gotoeop},
++	{ALT|'B', backword},
++	{ALT|'D', delfword},
++	{ALT|'F', forwword},
+ 	{0x7F,			backdel},
+ 	{0,			NULL}
+ };
+@@ -146,11 +153,11 @@
+ #ifdef	SPELLER
+ 	{CTRL|'T',		spell},
+ #endif	/* SPELLER */
+-	{CTRL|'U',		yank},
++	/*	{CTRL|'U',		yank},*/
+ 	{CTRL|'V',		forwpage},
+ 	{CTRL|'W',		forwsearch},
+ 	{CTRL|'X',		wquit},
+-	{CTRL|'Y',		backpage},
++	{CTRL|'Y',		yank},
+ #if defined(SIGTSTP) || defined(_WINDOWS)
+ 	{CTRL|'Z',		bktoshell},
+ #endif
+@@ -160,6 +167,13 @@
+ 	{CTRL|KEY_RIGHT,forwword},
+ 	{CTRL|KEY_HOME,	gotobob},
+ 	{CTRL|KEY_END,	gotoeob},
++	{CTRL|KEY_DEL,  delfword},
++	{CTRL|KEY_BACKSPACE,  delbword},
++	{CTRL|KEY_UP, gotobop},
++	{CTRL|KEY_DOWN, gotoeop},
++	{ALT|'B', backword},
++	{ALT|'D', delfword},
++	{ALT|'F', forwword},
+ 	{0x7F,			backdel},
+ 	{0,			NULL}
+ };
+diff -ur orig-re-alpine-2.03/pico/efunc.h re-alpine-2.03/pico/efunc.h
+--- orig-re-alpine-2.03/pico/efunc.h	2012-12-20 23:06:57.000000000 -0500
++++ re-alpine-2.03/pico/efunc.h	2016-10-24 07:11:47.897969807 -0400
+@@ -245,6 +245,8 @@
+ extern	int wrapword(void);
+ extern	int backword(int, int);
+ extern	int forwword(int, int);
++extern	int delfword(int, int);
++extern	int delbword(int, int);
+ extern	int fillpara(int, int);
+ extern	int fillbuf(int, int);
+ extern	int inword(void);
+diff -ur orig-re-alpine-2.03/pico/estruct.h re-alpine-2.03/pico/estruct.h
+--- orig-re-alpine-2.03/pico/estruct.h	2012-12-20 23:06:57.000000000 -0500
++++ re-alpine-2.03/pico/estruct.h	2016-10-24 07:11:47.897969807 -0400
+@@ -30,7 +30,7 @@
+ /*	Configuration options	*/
+ 
+ #define CVMVAS  1	/* arguments to page forward/back in pages	*/
+-#define	NFWORD	1	/* forward word jumps to begining of word	*/
++#define	NFWORD	0	/* forward word jumps to begining of word	*/
+ #define	TYPEAH	0	/* type ahead causes update to be skipped	*/
+ #define	REVSTA	1	/* Status line appears in reverse video		*/
+ 
+diff -ur orig-re-alpine-2.03/pico/keydefs.h re-alpine-2.03/pico/keydefs.h
+--- orig-re-alpine-2.03/pico/keydefs.h	2012-12-20 23:06:57.000000000 -0500
++++ re-alpine-2.03/pico/keydefs.h	2016-10-24 07:11:47.897969807 -0400
+@@ -31,6 +31,8 @@
+ #undef CTRL
+ #define CTRL		0x1000000
+ #define FUNC		0x2000000
++#define ALT         0x4000000
++/*that's not the same as KEY_BASE*/
+ 
+ #define KEY_BASE	0x40000000
+ #define CCONV_NEEDMORE	(KEY_BASE+1)	/* need more octets */
+@@ -68,6 +70,9 @@
+ #define CTRL_KEY_DOWN	(KEY_BASE+0x119)
+ #define CTRL_KEY_RIGHT	(KEY_BASE+0x11a)
+ #define CTRL_KEY_LEFT	(KEY_BASE+0x11b)
++#define CTRL_KEY_DEL (KEY_BASE+0x11c)
++#define CTRL_KEY_BACKSPACE (KEY_BASE+0x11d)
++#define KEY_BACKSPACE (KEY_BASE+0x11e)
+ 
+ /*
+  * Don't think we are using the fact that this is zero anywhere,
+@@ -83,7 +88,11 @@
+ #define NODATA		(KEY_BASE+0x125)
+ #define KEY_UTF8	(KEY_BASE+0x126)
+ #define KEY_UNKNOWN	(KEY_BASE+0x127)
+- 
++
++#define ALT_KEY_B (KEY_BASE+0x128)
++#define ALT_KEY_D (KEY_BASE+0x129)
++#define ALT_KEY_F (KEY_BASE+0x12a)
++
+ /*
+  * defines for function keys
+  */
+diff -ur orig-re-alpine-2.03/pico/osdep/getkey.c re-alpine-2.03/pico/osdep/getkey.c
+--- orig-re-alpine-2.03/pico/osdep/getkey.c	2012-12-20 23:06:57.000000000 -0500
++++ re-alpine-2.03/pico/osdep/getkey.c	2016-10-24 07:11:47.897969807 -0400
+@@ -276,6 +276,16 @@
+ 	return(CTRL | KEY_RIGHT);
+       case  CTRL_KEY_LEFT	:
+ 	return(CTRL | KEY_LEFT);
++	  case  CTRL_KEY_DEL    :
++    return(CTRL | KEY_DEL);
++	  case  CTRL_KEY_BACKSPACE    :
++		return(CTRL | KEY_BACKSPACE);
++	case ALT_KEY_B:
++	  return(ALT | 'B');
++	case ALT_KEY_D:
++	  return(ALT | 'D');
++	case ALT_KEY_F:
++	  return(ALT | 'F');
+ 
+       case KEY_SWALLOW_Z:
+ 	status = BADESC;
+diff -ur orig-re-alpine-2.03/pico/osdep/terminal.c re-alpine-2.03/pico/osdep/terminal.c
+--- orig-re-alpine-2.03/pico/osdep/terminal.c	2012-12-20 23:06:57.000000000 -0500
++++ re-alpine-2.03/pico/osdep/terminal.c	2016-10-24 07:18:24.985049302 -0400
+@@ -260,6 +260,11 @@
+     kpinsert("\033[1;5B", CTRL_KEY_DOWN, 1);
+     kpinsert("\033[1;5C", CTRL_KEY_RIGHT, 1);
+     kpinsert("\033[1;5D", CTRL_KEY_LEFT, 1);
++    kpinsert("\033[3;5~", CTRL_KEY_DEL, 1);
++    kpinsert("\033[5;8~", CTRL_KEY_BACKSPACE, 1);
++    kpinsert("\033b", ALT_KEY_B, 1);
++    kpinsert("\033d", ALT_KEY_D, 1);
++    kpinsert("\033f", ALT_KEY_F, 1);
+ 
+     /*
+      * Map some shift+up/down/left/right to their shiftless counterparts
+@@ -1017,6 +1022,11 @@
+     kpinsert("\033[1;5B", CTRL_KEY_DOWN, 1);
+     kpinsert("\033[1;5C", CTRL_KEY_RIGHT, 1);
+     kpinsert("\033[1;5D", CTRL_KEY_LEFT, 1);
++    kpinsert("\033[3;5~", CTRL_KEY_DEL, 1);
++    kpinsert("\033[5;8~", CTRL_KEY_BACKSPACE, 1);
++    kpinsert("\033b", ALT_KEY_B, 1);
++    kpinsert("\033d", ALT_KEY_D, 1);
++    kpinsert("\033f", ALT_KEY_F, 1);
+ 
+     /*
+      * Map some shift+up/down/left/right to their shiftless counterparts
+diff -ur orig-re-alpine-2.03/pico/word.c re-alpine-2.03/pico/word.c
+--- orig-re-alpine-2.03/pico/word.c	2012-12-20 23:06:57.000000000 -0500
++++ re-alpine-2.03/pico/word.c	2016-10-24 07:11:47.897969807 -0400
+@@ -190,6 +190,7 @@
+      return !ucs4_isalnum(c) && !ucs4_isspace(c);
+ }
+ 
++#define MAYBELATER 1
+ #ifdef	MAYBELATER
+ /*
+  * Move the cursor forward by the specified number of words. As you move,
+@@ -225,7 +226,7 @@
+         }
+         return (TRUE);
+ }
+-
++#if 0
+ /*
+  * Move the cursor forward by the specified number of words. As you move
+  * convert characters to lower case. Error if you try and move over the end of
+@@ -260,7 +261,7 @@
+         }
+         return (TRUE);
+ }
+-
++#endif
+ /*
+  * Move the cursor forward by the specified number of words. As you move
+  * convert the first character of the word to upper case, and subsequent
